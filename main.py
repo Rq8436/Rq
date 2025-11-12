@@ -174,3 +174,5 @@ async def rolar(interaction: discord.Interaction, dado: str):
     resposta = f"🎲 **Rolagem:** {quantidade}d{lados}\n👀 **Resultados:** {detalhes}\n⚔️ **Total:** {total}"
 
     await interaction.response.send_message(resposta, ephemeral=True)
+
+bot.run("TOKEN")
