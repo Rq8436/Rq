@@ -174,5 +174,20 @@ async def rolar(interaction: discord.Interaction, dado: str):
     resposta = f"🎲 **Rolagem:** {quantidade}d{lados}\n👀 **Resultados:** {detalhes}\n⚔️ **Total:** {total}"
 
     await interaction.response.send_message(resposta)
+#comando keep-alive
+from flask import Flask
+from threading import Thread
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot online!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+Thread(target=run).start()
+
 
 bot.run(os.getenv("DISCORD_TOKEN"))
