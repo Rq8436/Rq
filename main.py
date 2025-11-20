@@ -54,6 +54,54 @@ async def ajuda(interaction: discord.Interaction):
         "`/rolar` — Rolar dados (ex: 2d20, 3d6)\n",
         ephemeral=True
     )
+# ==========================
+#   CONVITE QUE DÁ CARGO
+# ==========================
+
+# Armazena: { "invite_code": role_id }
+invite_roles = {}
+
+@bot.tree.command(name="convitecargo", description="Cria um convite que dá um cargo automaticamente")
+@app_commands.describe(cargo="Selecione o cargo que será aplicado ao entrar")
+async def convitecargo(interaction: discord.Interaction, cargo: discord.Role):
+
+    # Criar convite no canal atual
+    invite = await interaction.channel.create_invite(max_uses=1, unique=True)
+
+    # Salvar código → cargo
+    invite_roles[invite.code] = cargo.id
+
+    await interaction.response.send_message(
+        f"🎫 Convite criado!\n"
+        f"Use este link: **https://discord.gg/{invite.code}**\n"
+        f"📌 Quem entrar por ele receberá automaticamente o cargo **{cargo.name}**.",
+        ephemeral=True
+    )
+
+
+# Detectar quando alguém entra pelo convite
+@bot.event
+async def on_member_join(member: discord.Member):
+    # Pegar convites antes e depois
+    guild = member.guild
+    invites_after = await guild.invites()
+
+    for invite in invites_after:
+        # Verifica se o convite é um dos convites especiais
+        if invite.code in invite_roles:
+            role_id = invite_roles[invite.code]
+            role = guild.get_role(role_id)
+
+            if role:
+                await member.add_roles(role, reason="Entrou pelo convite especial")
+                print(f"{member} recebeu o cargo {role.name} pelo convite {invite.code}")
+
+            # Remover depois de usado (evita erros)
+            invite_roles.pop(invite.code, None)
+            break
+
+
+
 
 # ==========================
 #   NOMES ALEATÓRIOS
