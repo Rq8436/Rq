@@ -54,53 +54,83 @@ async def ajuda(interaction: discord.Interaction):
         "`/rolar` — Rolar dados (ex: 2d20, 3d6)\n",
         ephemeral=True
     )
+
 # ==========================
-#   CONVITE QUE DÁ CARGO
+#   CONVITE COM CARGO
 # ==========================
 
-# Armazena: { "invite_code": role_id }
+# Dicionário: { "codigo_do_convite": role_id }
 invite_roles = {}
+guild_invites_cache = {}
 
-@bot.tree.command(name="convitecargo", description="Cria um convite que dá um cargo automaticamente")
-@app_commands.describe(cargo="Selecione o cargo que será aplicado ao entrar")
-async def convitecargo(interaction: discord.Interaction, cargo: discord.Role):
+@bot.tree.command(name="criarconvite", description="Cria um convite e dá automaticamente um cargo a quem entrar.")
+@app_commands.describe(cargo="Cargo que será atribuído ao usuário que entrar pelo convite.")
+async def criarconvite(interaction: discord.Interaction, cargo: discord.Role):
 
-    # Criar convite no canal atual
-    invite = await interaction.channel.create_invite(max_uses=1, unique=True)
+    # Verifica permissões básicas
+    if not interaction.guild.me.guild_permissions.manage_roles:
+        return await interaction.response.send_message(
+            "❌ Eu preciso da permissão **Gerenciar Cargos**.",
+            ephemeral=True
+        )
 
-    # Salvar código → cargo
+    if not interaction.guild.me.guild_permissions.create_instant_invite:
+        return await interaction.response.send_message(
+            "❌ Eu preciso da permissão **Criar Convites**.",
+            ephemeral=True
+        )
+
+    # Criando convite ilimitado
+    invite = await interaction.channel.create_invite(max_age=0, max_uses=0, unique=True)
+
+    # Salvando relação convite → cargo
     invite_roles[invite.code] = cargo.id
 
     await interaction.response.send_message(
-        f"🎫 Convite criado!\n"
-        f"Use este link: **https://discord.gg/{invite.code}**\n"
-        f"📌 Quem entrar por ele receberá automaticamente o cargo **{cargo.name}**.",
+        f"✨ Convite criado!\n📩 Link: https://discord.gg/{invite.code}\n🎖 Cargo vinculado: {cargo.mention}",
         ephemeral=True
     )
 
+    # Atualizar cache de convites iniciais
+    guild = interaction.guild
+    guild_invites_cache[guild.id] = {i.code: i.uses for i in await guild.invites()}
 
-# Detectar quando alguém entra pelo convite
+
 @bot.event
 async def on_member_join(member: discord.Member):
-    # Pegar convites antes e depois
     guild = member.guild
-    invites_after = await guild.invites()
 
-    for invite in invites_after:
-        # Verifica se o convite é um dos convites especiais
-        if invite.code in invite_roles:
-            role_id = invite_roles[invite.code]
-            role = guild.get_role(role_id)
+    try:
+        convites_atuais = await guild.invites()
+    except:
+        return
 
-            if role:
-                await member.add_roles(role, reason="Entrou pelo convite especial")
-                print(f"{member} recebeu o cargo {role.name} pelo convite {invite.code}")
+    # Se o servidor ainda não tem cache, cria
+    if guild.id not in guild_invites_cache:
+        guild_invites_cache[guild.id] = {i.code: i.uses for i in convites_atuais}
 
-            # Remover depois de usado (evita erros)
-            invite_roles.pop(invite.code, None)
+    convites_antes = guild_invites_cache[guild.id]
+
+    # Descobre qual convite foi usado
+    for invite in convites_atuais:
+        antes = convites_antes.get(invite.code, 0)
+        depois = invite.uses
+
+        if depois > antes:
+            # Esse foi o convite usado
+            if invite.code in invite_roles:
+                role_id = invite_roles[invite.code]
+                role = guild.get_role(role_id)
+                if role:
+                    try:
+                        await member.add_roles(role, reason="Entrou pelo convite com cargo automático.")
+                        print(f"{member} recebeu {role.name} entrando por {invite.code}")
+                    except:
+                        pass
             break
 
-
+    # Atualiza cache
+    guild_invites_cache[guild.id] = {i.code: i.uses for i in convites_atuais}
 
 
 # ==========================
